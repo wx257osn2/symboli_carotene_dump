@@ -17,7 +17,7 @@ struct config_t{
 }static config;
 static inline void from_json(const nlohmann::json& j, config_t& conf){
 	auto config_opt_read = [](const nlohmann::json& j, const nlohmann::json::object_t::key_type& key, auto& value){
-		core->config_read<true>("Symboli Carotene :: config_read", j, key, value);
+		core->config_read<true>("Carotene Dump :: config_read", j, key, value);
 	};
 	if(j.contains("save") && j["save"].is_object()){
 		config_opt_read(j["save"], "request", conf.save.request);
