@@ -3,5 +3,11 @@
         "request": false,
         "response": true
     },
+    "filter": {
+        "response": [
+            "race_scenario",
+            "race_horse_data"
+        ]
+    },
     "export_directory": "./Carotene/"
 }

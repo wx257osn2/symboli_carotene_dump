@@ -13,6 +13,10 @@ struct config_t{
 		bool request = false;
 		bool response = false;
 	}save;
+	struct{
+		std::vector<std::string> request;
+		std::vector<std::string> response;
+	}filter;
 	std::filesystem::path export_directory = "";
 }static config;
 static inline void from_json(const nlohmann::json& j, config_t& conf){
@@ -22,6 +26,11 @@ static inline void from_json(const nlohmann::json& j, config_t& conf){
 	if(j.contains("save") && j["save"].is_object()){
 		config_opt_read(j["save"], "request", conf.save.request);
 		config_opt_read(j["save"], "response", conf.save.response);
+	}
+	if(j.contains("filter") && j["filter"].is_object()){
+		const auto& filter = j["filter"];
+		config_opt_read(filter, "request", conf.filter.request);
+		config_opt_read(filter, "response", conf.filter.response);
 	}
 	if(j.contains("export_directory") && j["export_directory"].is_string()){
 		std::string str;
@@ -38,6 +47,16 @@ static inline will::expected<void, std::error_code> write_file(std::filesystem::
 	std::unique_ptr<::FILE, decltype(&::fclose)> _{fp, &::fclose};
 	::fwrite(buffer, 1, len, fp);
 	return {};
+}
+
+static inline bool simple_filter(const std::vector<std::byte>& data, const std::vector<std::string>& filter){
+	if(filter.empty())
+		return true;
+	for(std::size_t i = 0; i < data.size(); ++i)
+		for(auto&& x : filter)
+			if(data.size() - i >= x.size() && std::memcmp(data.data()+i, x.data(), x.size()) == 0)
+				return true;
+	return false;
 }
 
 static inline BOOL process_attach(HINSTANCE hinst){
@@ -65,11 +84,15 @@ static inline BOOL process_attach(HINSTANCE hinst){
 
 	if(config.save.request)
 		core->add_request_func([](const std::vector<std::byte>& data){
+			if(!simple_filter(data, config.filter.request))
+				return;
 			const auto current_time = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
 			write_file(config.export_directory/(current_time+"Q.msgpack"), reinterpret_cast<const char*>(data.data()), data.size());
 		});
 	if(config.save.response)
 		core->add_response_func([](const std::vector<std::byte>& data){
+			if(!simple_filter(data, config.filter.response))
+				return;
 			const auto current_time = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
 			write_file(config.export_directory/(current_time+"R.msgpack"), reinterpret_cast<const char*>(data.data()), data.size());
 		});
